@@ -1,6 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include <random>
+#include <string>
 
 inline uint32_t random()
 {
@@ -8,96 +9,69 @@ inline uint32_t random()
 	return rng() % (uint32_t)-1;
 }
 
-constexpr inline char after(char next)
-{
-	switch (next)
-	{
-	case '!': return 'X';
-	case 'X': return 'O';
-	case 'O': return 'R';
-	case 'R': return 'd';
-	default: return '!';
-	}
-}
-
+#define MINSTRINGSIZE (sizeof("!XOR!\0") - 1)
 void encryptStrings(char* f, size_t size)
 {
-	char next = '!';
-	size_t d = 0;
-	bool dreal = false;
-	size_t start = 0;
-
-	for (size_t i = 0; i < size; i++)
+	for (size_t filePosition = 0, nBytesRemaining = size; nBytesRemaining >= MINSTRINGSIZE; filePosition++, nBytesRemaining--)
 	{
-		if (next == 'd')
-		{
-			if ('0' <= f[i] && f[i] <= '9')
-			{
-				d = d * 10 + f[i] - '0';
-				dreal = true;
-				continue;
-			}
-			else if (f[i] == '!')
-			{
-				char* tag = f + start;
-				char* string = f + i + 1;
-				if (!dreal) for (d = 1; i + d < size && f[i + d]; d++);
-
-				uint32_t key = random();
-				char smallkey = key & 0xff;
-
-				std::cout << "Found string of length: " << d << (dreal ? " (read)" : " (calculated)");
-				std::cout << " encoding w/ key=" << key << std::endl;
-
-				size_t offset = 0;
-				for (; offset <= d - 4; offset += 4)
-					*(uint32_t*)(string + offset) ^= key;
-				for (; offset < d; offset ++)
-					string[offset] ^= key;
-
-				tag[0] = '^';
-				*(uint32_t*)(tag + 1) = key;
-
-				i += d;
-				d = 0;
-				dreal = false;
-				next = '!';
-				continue;
-			}
-			else
-			{
-				d = 0;
-				dreal = false;
-				next = '!';
-				continue;
-			}
-		}
-		else if (f[i] == next)
-		{
-			if (next == '!')
-			{
-				start = i;
-			}
-			next = after(next);
+		char* tag = f + filePosition;
+		if (strncmp(tag, "!XOR", 4))
 			continue;
+		
+		size_t stringSize = 0;
+		char* string = nullptr;
+		if (tag[4] == '!')
+		{
+			if (nBytesRemaining <= 5) return;
+			stringSize = strnlen_s(tag + 5, nBytesRemaining - 5) + 1; // +=1 for null terminator
+			if (stringSize > nBytesRemaining) return;
+			string = tag + 5;
 		}
 		else
 		{
-			d = 0;
-			dreal = false;
-			next = '!';
-			continue;
+			for (size_t i = 4; i < nBytesRemaining; i++)
+			{
+				if ('0' <= tag[i] && tag[i] <= '9')
+				{
+					stringSize = stringSize * 10 + (tag[i] - '0');
+				}
+				else if (tag[i] == '!')
+				{
+					string = tag + i + 1;
+					break;
+				}
+				else
+				{
+					std::cout << "Found near match at file position " << filePosition << std::endl;
+					break;
+				}
+			}
+			if (!string)
+				continue;
 		}
+
+
+		uint32_t key = random();
+		std::cout << key << "/" << stringSize << " : " << std::string(string, std::min(stringSize, (size_t)16))<< std::endl;
+
+		tag[0] = '^';
+		*(uint32_t*)(tag + 1) = key;
+
+		size_t offset = 0;
+		for (; stringSize >= 4 && offset <= stringSize - 4; offset += 4)
+			*(uint32_t*)(string + offset) ^= key;
+		for (; offset < stringSize; offset++)
+			string[offset] ^= key & 0xff;
 	}
 }
 
 int main()
 {
-	srand(time(0));
+	srand((unsigned int)(time(0)));
 	std::fstream ifile;
 	std::fstream ofile;
-	ifile.open("E:\\GitHub\\temp\\Release\\temp.exe", std::fstream::in | std::fstream::binary);
-	ofile.open("E:\\GitHub\\temp\\Release\\out.exe", std::fstream::out | std::fstream::binary);
+	ifile.open("E:\\GitHub\\internalV1\\Release\\CSGOCollabV1.dll", std::fstream::in | std::fstream::binary);
+	ofile.open("E:\\GitHub\\internalV1\\Release\\encrypted.dll", std::fstream::out | std::fstream::binary);
 
 	if (!ifile.is_open() || !ofile.is_open())
 	{
@@ -106,7 +80,7 @@ int main()
 	}
 
 	ifile.seekg(0, std::fstream::end);
-	size_t size = ifile.tellg();
+	size_t size = (size_t)(ifile.tellg());
 	ifile.seekg(0);
 
 	char* f = new char[size];
