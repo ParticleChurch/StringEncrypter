@@ -68,38 +68,39 @@ void encryptStrings(char* f, size_t size)
 int main()
 {
 	srand((unsigned int)(time(0)));
-	std::fstream ifile;
-	std::fstream ofile;
-	ifile.open("E:\\GitHub\\internalV1\\Release\\CSGOCollabV1.dll", std::fstream::in | std::fstream::binary);
-	ofile.open("E:\\GitHub\\internalV1\\Release\\encrypted.dll", std::fstream::out | std::fstream::binary);
-
-	if (!ifile.is_open() || !ofile.is_open())
+	for (int i = 0; i < 100; i++)
 	{
-		std::cout << "Failed to open file(s)." << std::endl;
-		return 1;
+		std::fstream ifile;
+		std::fstream ofile;
+		ifile.open("E:\\GitHub\\Metamorpher\\out\\" + std::to_string(i) + ".dll", std::fstream::in | std::fstream::binary);
+		ofile.open("E:\\GitHub\\Metamorpher\\out_string_encrypted\\" + std::to_string(i) + ".dll", std::fstream::out | std::fstream::binary);
+
+		if (!ifile.is_open() || !ofile.is_open())
+		{
+			std::cout << "Failed to open file(s)." << std::endl;
+			return 1;
+		}
+
+		ifile.seekg(0, std::fstream::end);
+		size_t size = (size_t)(ifile.tellg());
+		ifile.seekg(0);
+
+		char* f = new char[size];
+		if (!ifile.read(f, size))
+		{
+			std::cout << "Failed to read file." << std::endl;
+			return 1;
+		}
+
+		encryptStrings(f, size);
+
+		if (!ofile.write(f, size))
+		{
+			std::cout << "Failed to write output." << std::endl;
+			return 1;
+		}
+
+		ifile.close();
+		ofile.close();
 	}
-
-	ifile.seekg(0, std::fstream::end);
-	size_t size = (size_t)(ifile.tellg());
-	ifile.seekg(0);
-
-	char* f = new char[size];
-	if (!ifile.read(f, size))
-	{
-		std::cout << "Failed to read file." << std::endl;
-		return 1;
-	}
-
-	encryptStrings(f, size);
-
-	if (!ofile.write(f, size))
-	{
-		std::cout << "Failed to write output." << std::endl;
-		return 1;
-	}
-
-	ifile.close();
-	ofile.close();
-
-	return 0;
 };
